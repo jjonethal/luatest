@@ -8,6 +8,7 @@ meta.heap = 0          -- variable holding reference to heap
 -- start lua definition
 meta[":L"]       = function() wordParser = parseLua     luaWord = "" end
 
+-- generate functions for binary operators +-*/%
 BIN_OPS          = "+-*/%"
 function genBinOp(op)
 	meta[op] = loadstring("local t = pop() local n = pop() push(n ".. op .. " t)")
@@ -27,7 +28,7 @@ function parseVarName(word,ws)
 	local adr  = meta.heap                  -- get current heap adress
 	meta.heap  = meta.heap + 1              -- increment heap adress
 	meta[word] = function() push(adr) end   -- create function for placing heap adress of variable on stack
-	wordParser = parseWord                  -- restore default word parser
+	wordParser = interpreter                  -- restore default word parser
 end
 
 --- put a new value onto stack
@@ -36,7 +37,7 @@ function push(n)
 	stack.sp        = stack.sp + 1       -- increment stack pointer     
 	stack[stack.sp] = n                  -- put item onto stack
 end
-
+--- assemble lua definition
 function parseLua(word,ws)
 	if word == "L;" then
 		luaFunc,err = loadstring(luaWord)
@@ -44,12 +45,13 @@ function parseLua(word,ws)
 			print("Error ",err)
 		end
 		luaFunc()
-		wordParser = parseWord
+		wordParser = interpreter
 	else
 		luaWord    = luaWord .. word .. ws
 	end
 end
 
+--- get item from parameter stack
 function pop()
 	assert(stack.sp > 0,"stack underflow")
 	local n         = stack[stack.sp]
@@ -65,12 +67,13 @@ function pushNumber(n)
 	push(math.floor(n % 65536))
 end
 
+--- put an item to stack
 function pushNumber(n)
 	push(n)
 end
 
-
-function parseWord(word,ws)
+--- interpreter
+function interpreter(word,ws)
 	if macro[word] then
 		macro[word]()
 	elseif(meta[word]) then
@@ -92,7 +95,7 @@ end
 
 -- end high level definition colon 
 macro[";"] = function()
-	wordParser = parseWord
+	wordParser = interpreter
 	local cw   = meta.currentWord
 	meta[cw]   = meta[cw] .. " "
 	local cf,e = loadstring(meta[cw])
@@ -175,7 +178,7 @@ function meta.bool()
 	end
 end
 
-wordParser = parseWord --- reference to current word parser
+wordParser = interpreter --- reference to current word parser
 lineNumber = 0         --- counter for source line numbers
 lineParser = parseLine --- reference to current line parser
 

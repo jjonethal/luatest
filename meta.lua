@@ -1,4 +1,5 @@
-Ôªø-- meta compiler
+--ÑÑÑÑ
+-- meta compiler
 meta  = {}             -- table of meta compiler definitions
 stack = {sp = 0,}      -- the parameter stack
 macro = {}             -- table contining all macro definitions
@@ -20,6 +21,19 @@ meta["variable"] = function()
 	varName    = ""
 end
 
+meta["."] = function() print(pop()) end
+meta["!"] = function() local a = pop() meta[a] = pop() end
+meta["@"] = function() push(meta[pop()]) end
+meta[":"] = function() wordParser = compCreateToken end
+
+macro.immediate = function()
+		macro[meta.currentWord] = meta[meta.currentWord]
+		meta[meta.currentWord]  = nil
+		meta.currentWord        = nil
+	end
+macro["if"] = function()
+		meta[meta.currentWord] = meta[meta.currentWord] .. " meta.bool() if pop() then "
+	end
 --- create new variable on heap
 -- @param word the name of variable
 -- @param ws not used
@@ -175,10 +189,6 @@ function meta.bool()
 	end
 end
 
-wordParser = parseWord --- reference to current word parser
-lineNumber = 0         --- counter for source line numbers
-lineParser = parseLine --- reference to current line parser
-
 --- Redirection to invoke current word parser.
 -- @param w the current word string
 -- @param ws the white spaces following the current word
@@ -207,6 +217,12 @@ end
 function parseSource(source)
 	source:gsub("([^\r\n]*\n)",lineParserImpl)  -- parse all lines
 end
+
+
+wordParser = parseWord --- reference to current word parser
+lineNumber = 0         --- counter for source line numbers
+lineParser = parseLine --- reference to current line parser
+
 
 source = [[
 :L A = 1 + 1 print(A) L;
@@ -245,13 +261,14 @@ c @ .
 3 4 / .
 3 4 % .
 0xff 4 % .
-\ ( klkj sdlîk îlfd sîlkj gfsd )
+\ ( klkj sdlk lfd slkj gfsd )
 \ das ist ein comment
 100 .
-( îklj aîlkdîk îlkj )
+( klj ÅÅÅ îîîî  alkdk lkj )
 " Hallo Leute" 2 !
 2 @ .
 ]]
+
 parseSource(source)
 for k,v in pairs(meta) do print(k,v) end
 

@@ -1,31 +1,40 @@
 ﻿-- meta compiler
-meta  = {}
-stack = {sp = 0,}
-meta  = {}
-macro = {}
-img   = {}
-mem   = {}
-meta.heap = 0
+meta  = {}             -- table of meta compiler definitions
+stack = {sp = 0,}      -- the parameter stack
+macro = {}             -- table contining all macro definitions
+img   = {}             -- table containing binary image
+mem   = {}             -- table for storing integers
+meta.heap = 0          -- variable holding reference to heap
+-- start lua definition
 meta[":L"]       = function() wordParser = parseLua     luaWord = "" end
-meta["variable"] = function() wordParser = parseVarName varName = "" end
-BIN_OPS          = "+-*/%"
 
+BIN_OPS          = "+-*/%"
 function genBinOp(op)
 	meta[op] = loadstring("local t = pop() local n = pop() push(n ".. op .. " t)")
 end
-
 BIN_OPS:gsub("(.)",genBinOp)
 
-function parseVarName(word,ws)
-	local adr  = meta.heap
-	meta.heap  = meta.heap + 1
-	meta[word] = function() push(adr) end
-	wordParser = parseWord
+-- start variable definition
+meta["variable"] = function()
+	wordParser = parseVarName    -- redirect word parser to retrieve wariable name
+	varName    = ""
 end
 
-function push(n)
-	stack.sp        = stack.sp + 1
-	stack[stack.sp] = n
+--- create new variable on heap
+-- @param word the name of variable
+-- @param ws not used
+function parseVarName(word,ws)
+	local adr  = meta.heap                  -- get current heap adress
+	meta.heap  = meta.heap + 1              -- increment heap adress
+	meta[word] = function() push(adr) end   -- create function for placing heap adress of variable on stack
+	wordParser = parseWord                  -- restore default word parser
+end
+
+--- put a new value onto stack
+-- @param n the item to be placed on stack.
+function push(n)                         
+	stack.sp        = stack.sp + 1       -- increment stack pointer     
+	stack[stack.sp] = n                  -- put item onto stack
 end
 
 function parseLua(word,ws)
@@ -134,7 +143,13 @@ end
 macro["\\"] = function() skipLineOrgParser = wordParser wordParser = skipLine end
 macro["("]  = function() skipCommentOrgParser = wordParser wordParser = skipComment end
 
--- high level compiler
+--- high level compiler.
+-- a word parser class function
+-- assemble the function definition as lua sequence of function invocations.
+-- words found in macro dictionary are invoked directly
+-- meta words assembled into function invocations
+-- numbers / literals assembled as invocation to pushNumber
+-- @param word the current word to be compiled or executed 
 function compCompileWords(word,ws)
 	if macro[word] then
 		macro[word]()
@@ -148,7 +163,7 @@ function compCompileWords(word,ws)
 	end
 end
 
--- convert value on stack to boolen
+--- convert value on stack to boolean.
 function meta.bool()
 	local v = pop()
 	if type(v)=="boolean" then
@@ -160,29 +175,37 @@ function meta.bool()
 	end
 end
 
-wordParser = parseWord
-lineNumber = 0
+wordParser = parseWord --- reference to current word parser
+lineNumber = 0         --- counter for source line numbers
+lineParser = parseLine --- reference to current line parser
 
+--- Redirection to invoke current word parser.
+-- @param w the current word string
+-- @param ws the white spaces following the current word
 function wordParserImpl(w,ws)
 	wordParser(w,ws)
 end
 
-
+--- Default line parser.
+-- splits line into words and white spaces and handover the words to word parser
+-- white spaces might be required to reassemble strings and comments
+-- @param l the current line to be parsed
 function parseLine(l)
-	lineNumber = lineNumber + 1
-	io.write(string.format("%5d ",lineNumber))
-	io.write(l)
-	l:gsub("([%S]+)([%s]*)", wordParserImpl)
+	lineNumber = lineNumber + 1                -- increment line number
+	io.write(string.format("%5d ",lineNumber)) -- output debug info line number
+	io.write(l)                                -- output current line
+	l:gsub("([%S]+)([%s]*)", wordParserImpl)   -- split line into words and whitespaces
 end
 
-lineParser = parseLine
-
+-- invoke redirector for line parser 
+-- line parser can be redirected by application
 function lineParserImpl(l, le)
-	lineParser(l,le)
+	lineParser(l,le)              -- redirect lineParser for later
 end
 
+-- parse the string source as lines 
 function parseSource(source)
-	source:gsub("([^\r\n]*\n)",lineParserImpl)
+	source:gsub("([^\r\n]*\n)",lineParserImpl)  -- parse all lines
 end
 
 source = [[

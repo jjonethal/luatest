@@ -1,4 +1,4 @@
-ï»¿-- meta compiler
+-- meta compiler
 meta  = {}             -- table of meta compiler definitions
 stack = {sp = 0,}      -- the parameter stack
 macro = {}             -- table contining all macro definitions
@@ -8,6 +8,24 @@ meta.heap = 0          -- variable holding reference to heap
 -- start lua definition
 meta[":L"]       = function() wordParser = parseLua     luaWord = "" end
 
+----------------- stack operations -----------------------------
+--- put a new value onto stack
+-- @param n the item to be placed on parameter stack.
+function push(n)                         
+	stack.sp        = stack.sp + 1       -- increment stack pointer     
+	stack[stack.sp] = n                  -- put item onto stack
+end
+
+--- get item from parameter stack
+function pop()
+	assert(stack.sp > 0,"stack underflow")
+	local n         = stack[stack.sp]
+	stack[stack.sp] = nil
+	stack.sp        = stack.sp - 1
+	return n
+end
+
+
 -- generate functions for binary operators +-*/%
 BIN_OPS          = "+-*/%"
 function genBinOp(op)
@@ -16,27 +34,23 @@ end
 BIN_OPS:gsub("(.)",genBinOp)
 
 -- start variable definition
-meta["variable"] = function()
-	wordParser = parseVarName    -- redirect word parser to retrieve wariable name
+function meta.variable()
+	wordParser = createVar    -- redirect word parser to retrieve wariable name
 	varName    = ""
 end
 
 --- create new variable on heap
 -- @param word the name of variable
 -- @param ws not used
-function parseVarName(word,ws)
+function createVar(word,ws)
 	local adr  = meta.heap                  -- get current heap adress
 	meta.heap  = meta.heap + 1              -- increment heap adress
 	meta[word] = function() push(adr) end   -- create function for placing heap adress of variable on stack
 	wordParser = interpreter                  -- restore default word parser
 end
 
---- put a new value onto stack
--- @param n the item to be placed on stack.
-function push(n)                         
-	stack.sp        = stack.sp + 1       -- increment stack pointer     
-	stack[stack.sp] = n                  -- put item onto stack
-end
+
+
 --- assemble lua definition
 function parseLua(word,ws)
 	if word == "L;" then
@@ -51,26 +65,6 @@ function parseLua(word,ws)
 	end
 end
 
---- get item from parameter stack
-function pop()
-	assert(stack.sp > 0,"stack underflow")
-	local n         = stack[stack.sp]
-	stack[stack.sp] = nil
-	stack.sp        = stack.sp - 1
-	return n
-end
-
-function pushNumber(n)
-	if n < -32768 or n > 32767 then
-		push(math.floor(n/65536))
-	end
-	push(math.floor(n % 65536))
-end
-
---- put an item to stack
-function pushNumber(n)
-	push(n)
-end
 
 --- interpreter
 function interpreter(word,ws)
@@ -79,7 +73,7 @@ function interpreter(word,ws)
 	elseif(meta[word]) then
 		meta[word]()
 	elseif tonumber(word) ~= nil then
-		pushNumber(tonumber(word))
+		push(tonumber(word))
 	else
 		print("\nword unknown", word)
 		assert(false,word)
@@ -151,7 +145,7 @@ macro["("]  = function() skipCommentOrgParser = wordParser wordParser = skipComm
 -- assemble the function definition as lua sequence of function invocations.
 -- words found in macro dictionary are invoked directly
 -- meta words assembled into function invocations
--- numbers / literals assembled as invocation to pushNumber
+-- numbers / literals assembled as invocation to push
 -- @param word the current word to be compiled or executed 
 function compCompileWords(word,ws)
 	if macro[word] then
@@ -159,7 +153,7 @@ function compCompileWords(word,ws)
 	elseif(meta[word]) then
 		meta[meta.currentWord] = meta[meta.currentWord] .. " meta['" .. word.."']() "
 	elseif tonumber(word) ~= nil then
-		meta[meta.currentWord] = meta[meta.currentWord] .. " pushNumber(tonumber(" .. word ..")) "
+		meta[meta.currentWord] = meta[meta.currentWord] .. " push(tonumber(" .. word ..")) "
 	else
 		print("\nword unknown", word)
 		assert(false,word)
@@ -178,9 +172,6 @@ function meta.bool()
 	end
 end
 
-wordParser = interpreter --- reference to current word parser
-lineNumber = 0         --- counter for source line numbers
-lineParser = parseLine --- reference to current line parser
 
 --- Redirection to invoke current word parser.
 -- @param w the current word string
@@ -210,6 +201,12 @@ end
 function parseSource(source)
 	source:gsub("([^\r\n]*\n)",lineParserImpl)  -- parse all lines
 end
+
+--- Variable / state initialization
+
+wordParser = interpreter --- reference to current word parser
+lineNumber = 0         --- counter for source line numbers
+lineParser = parseLine --- reference to current line parser
 
 source = [[
 :L A = 1 + 1 print(A) L;
@@ -248,10 +245,10 @@ c @ .
 3 4 / .
 3 4 % .
 0xff 4 % .
-\ ( klkj sdl”k ”lfd s”lkj gfsd )
+\ ( klkj sdlk lfd slkj gfsd )
 \ das ist ein comment
 100 .
-( ”klj a”lkd”k ”lkj )
+( klj alkdk lkj )
 " Hallo Leute" 2 !
 2 @ .
 ]]

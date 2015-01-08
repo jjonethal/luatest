@@ -1,4 +1,4 @@
--- Encoding:OEM 850 "ä" &auml; 
+ï»¿-- Encoding:OEM 850 "„" == "&auml;"
 -- meta compiler
 meta  = {}             -- table of meta compiler definitions
 stack = {sp = 0,}      -- the parameter stack
@@ -30,8 +30,7 @@ function pop()
 	return n
 end
 
-
-
+--- generate replacement for binary operations
 BIN_OPS          = "+-*/%"
 function genBinOp(op)
 	meta[op] = loadstring("local t = pop() local n = pop() push(n ".. op .. " t)")
@@ -51,7 +50,7 @@ function createVar(word,ws)
 	local adr  = meta.heap                  -- get current heap adress
 	meta.heap  = meta.heap + 1              -- increment heap adress
 	meta[word] = function() push(adr) end   -- create function for placing heap adress of variable on stack
-	wordParser = interpreter                -- restore default word parser
+	wordParser = interpret                  -- restore default word parser
 end
 
 --- print top of stack
@@ -84,13 +83,13 @@ macro["if"] = function()
 		meta[meta.currentWord] = meta[meta.currentWord] .. " meta.bool() if pop() then "
 	end
 
-function define_constant(word, ws)
+function create_constant(word, ws)
 	local v = pop()
 	meta[word] = function() push(v) end
 	wordParser = interpret
 end
 
-function macro.constant() wordParser = define_constant end
+function macro.constant() wordParser = create_constant end
 
 --- assemble lua definition
 function parseLua(word,ws)
@@ -285,7 +284,7 @@ c @ .
 \ ( klkj sdlk lfd slkj gfsd )
 \ das ist ein comment
 100 .
-( klj üüü öööö  alkdk lkj )
+( klj  ””””  alkdk lkj )
 " Hallo Leute" 2 !
 2 @ .
 ]]

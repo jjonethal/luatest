@@ -46,7 +46,7 @@ function createVar(word,ws)
 	local adr  = meta.heap                  -- get current heap adress
 	meta.heap  = meta.heap + 1              -- increment heap adress
 	meta[word] = function() push(adr) end   -- create function for placing heap adress of variable on stack
-	wordParser = interpreter                  -- restore default word parser
+	wordParser = interpreter                -- restore default word parser
 end
 
 
@@ -106,7 +106,7 @@ function stringBuilder(word,ws)
 	local s = string.match(word, "([^\"]*)")
 	-- print("sb match:",s)
 	if s == word then
-		currentString = currentString .. word .. ws
+		currentString = currentString .. word .. (ws or "")
 	else
 		currentString = currentString .. ( s or "" )
 		-- print("string compiled:",currentString)

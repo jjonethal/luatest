@@ -1,4 +1,4 @@
---„„„„
+-- Encoding:OEM 850 "„" &auml; 
 -- meta compiler
 meta  = {}             -- table of meta compiler definitions
 stack = {sp = 0,}      -- the parameter stack
@@ -21,11 +21,27 @@ meta["variable"] = function()
 	varName    = ""
 end
 
-meta["."] = function() print(pop()) end
-meta["!"] = function() local a = pop() meta[a] = pop() end
-meta["@"] = function() push(meta[pop()]) end
-meta[":"] = function() wordParser = compCreateToken end
-
+--- print top of stack
+meta["."]  = function() print(pop())                         end
+--- store to variable
+meta["!"]  = function() local a = pop() meta[a] = pop()      end
+--- fetch variable from index on stack
+meta["@"]  = function() push(meta[pop()])                    end
+--- start high level definition
+meta[":"]  = function() wordParser = createHll               end
+--- open file on file system
+meta.open  = function()  -- open file ( "filename" "mode" -- )
+	local m   = pop()
+	local n   = pop()
+	meta.file = io.open(n,m)
+	end
+--- write data to file
+meta.write  = function() meta.file:write(pop())              end -- write string ( s -- )
+--- close file
+meta.close  = function() meta.file:close() meta.file = nil   end -- close file
+--- write a byte to file
+meta.bwrite = function() meta.file:write(string.char(pop())) end -- write binary byte
+--- move command as immediate
 macro.immediate = function()
 		macro[meta.currentWord] = meta[meta.currentWord]
 		meta[meta.currentWord]  = nil
@@ -34,6 +50,15 @@ macro.immediate = function()
 macro["if"] = function()
 		meta[meta.currentWord] = meta[meta.currentWord] .. " meta.bool() if pop() then "
 	end
+
+function define_constant(word, ws)
+	local v = pop()
+	meta[word] = function() push(v) end
+	wordParser = interpret
+end
+
+macro.constant = function() wordParser = define_constant end
+
 --- create new variable on heap
 -- @param word the name of variable
 -- @param ws not used
@@ -41,7 +66,7 @@ function parseVarName(word,ws)
 	local adr  = meta.heap                  -- get current heap adress
 	meta.heap  = meta.heap + 1              -- increment heap adress
 	meta[word] = function() push(adr) end   -- create function for placing heap adress of variable on stack
-	wordParser = parseWord                  -- restore default word parser
+	wordParser = interpret                  -- restore default word parser
 end
 
 --- put a new value onto stack
@@ -58,7 +83,7 @@ function parseLua(word,ws)
 			print("Error ",err)
 		end
 		luaFunc()
-		wordParser = parseWord
+		wordParser = interpret
 	else
 		luaWord    = luaWord .. word .. ws
 	end
@@ -72,25 +97,14 @@ function pop()
 	return n
 end
 
-function pushNumber(n)
-	if n < -32768 or n > 32767 then
-		push(math.floor(n/65536))
-	end
-	push(math.floor(n % 65536))
-end
 
-function pushNumber(n)
-	push(n)
-end
-
-
-function parseWord(word,ws)
+function interpret(word,ws)
 	if macro[word] then
 		macro[word]()
 	elseif(meta[word]) then
 		meta[word]()
 	elseif tonumber(word) ~= nil then
-		pushNumber(tonumber(word))
+		push(tonumber(word))
 	else
 		print("\nword unknown", word)
 		assert(false,word)
@@ -98,7 +112,7 @@ function parseWord(word,ws)
 end
 
 -- create new HLL definition word
-function compCreateToken(word,ws)
+function createHll(word,ws)
 	meta.currentWord = word
 	meta[word]=" "
 	wordParser = compCompileWords
@@ -106,7 +120,7 @@ end
 
 -- end high level definition colon 
 macro[";"] = function()
-	wordParser = parseWord
+	wordParser = interpret
 	local cw   = meta.currentWord
 	meta[cw]   = meta[cw] .. " "
 	local cf,e = loadstring(meta[cw])
@@ -154,7 +168,7 @@ function skipComment(word,ws)
 	end
 end
 
-macro["\\"] = function() skipLineOrgParser = wordParser wordParser = skipLine end
+macro["\\"] = function() skipLineOrgParser    = wordParser wordParser = skipLine    end
 macro["("]  = function() skipCommentOrgParser = wordParser wordParser = skipComment end
 
 --- high level compiler.
@@ -162,7 +176,7 @@ macro["("]  = function() skipCommentOrgParser = wordParser wordParser = skipComm
 -- assemble the function definition as lua sequence of function invocations.
 -- words found in macro dictionary are invoked directly
 -- meta words assembled into function invocations
--- numbers / literals assembled as invocation to pushNumber
+-- numbers / literals assembled as invocation to push
 -- @param word the current word to be compiled or executed 
 function compCompileWords(word,ws)
 	if macro[word] then
@@ -170,7 +184,7 @@ function compCompileWords(word,ws)
 	elseif(meta[word]) then
 		meta[meta.currentWord] = meta[meta.currentWord] .. " meta['" .. word.."']() "
 	elseif tonumber(word) ~= nil then
-		meta[meta.currentWord] = meta[meta.currentWord] .. " pushNumber(tonumber(" .. word ..")) "
+		meta[meta.currentWord] = meta[meta.currentWord] .. " push(tonumber(" .. word ..")) "
 	else
 		print("\nword unknown", word)
 		assert(false,word)
@@ -219,7 +233,7 @@ function parseSource(source)
 end
 
 
-wordParser = parseWord --- reference to current word parser
+wordParser = interpret --- reference to current word parser
 lineNumber = 0         --- counter for source line numbers
 lineParser = parseLine --- reference to current line parser
 
@@ -229,7 +243,7 @@ source = [[
 :L meta["."] = function() print(pop()) end L;
 :L meta["!"] = function() local a = pop() meta[a] = pop() end L;
 :L meta["@"] = function() push(meta[pop()]) end L;
-:L meta[":"] = function() wordParser = compCreateToken end L;
+:L meta[":"] = function() wordParser = createHll end L;
 :L macro.immediate = function()
 		macro[meta.currentWord] = meta[meta.currentWord]
 		meta[meta.currentWord]  = nil

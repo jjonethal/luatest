@@ -1,5 +1,7 @@
-Ôªø-- Encoding:OEM 850 "Ñ" == "&auml;"
+Ôªø-- Encoding:UTF-8 "√§" == "&auml;"
 -- meta compiler
+-- on windows os.execute("chcp 65001")
+-- os.execute("chcp 65001")
 meta  = {}             -- table of meta compiler definitions
 stack = {sp = 0,}      -- the parameter stack
 macro = {}             -- table contining all macro definitions
@@ -265,28 +267,32 @@ source = [[
 	meta[meta.currentWord] = meta[meta.currentWord] .. " end "
 	end L;
 
-variable c
-variable last-word
-: p13 1 3 . . ;
+	
+\ this is a line comment
+( this is a block comment )
+
+: p13 1 3 . . ;                 \ test word creation and stack print
 p13
+variable c                      \ test variable creation
 15 c !
 c @ .
 15 .
-: test if 17 else 18 then . ;
-1 test
-0 test
-3 4 + .
-3 4 * .
-3 4 - .
-3 4 / .
-3 4 % .
-0xff 4 % .
-\ ( klkj sdlk lfd slkj gfsd )
-\ das ist ein comment
-100 .
-( klj ÅÅÅ îîîî  alkdk lkj )
-" Hallo Leute" 2 !
-2 @ .
+: test if 17 else 18 then . ;   \ create definition test
+1 test                          \ 1 is boolean true
+0 test                          \ 0 is boolean false
+3 4 + .                         \ test add
+3 4 * .                         \ test multiply
+3 4 - .                         \ test substract
+3 4 / .                         \ test division
+3 4 % .                         \ test modulo
+0xff 4 % .                      \ test modulo
+100 .                           \ print 100
+" Hello World" 2 !              \ put string on index 2
+2 @ .                           \ print item at index 2
+: true  1 bool ;
+: false 0 bool ;
+true  .
+false .
 ]]
 
 parseSource(source)

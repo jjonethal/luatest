@@ -1,5 +1,5 @@
 ﻿-- Encoding:UTF-8 "ä" == "&auml;"
--- meta compiler
+-- forth compiler in lua
 -- on windows os.execute("chcp 65001")
 -- os.execute("chcp 65001")
 meta  = {}             -- table of meta compiler definitions

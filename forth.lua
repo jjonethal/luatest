@@ -1,3 +1,4 @@
+-- Encoding:OEM 850 "ä" &auml; 
 -- meta compiler
 meta  = {}             -- table of meta compiler definitions
 stack = {sp = 0,}      -- the parameter stack
@@ -8,6 +9,10 @@ meta.heap = 0          -- variable holding reference to heap
 -- start lua definition
 meta[":L"]       = function() wordParser = parseLua     luaWord = "" end
 
+-- debugging stuff
+function printf(fmt,...) io.write(fmt:format(...)) end
+function debug(...)  print(...)  end
+function debugf(...) printf(...) end
 ----------------- stack operations -----------------------------
 --- put a new value onto stack
 -- @param n the item to be placed on parameter stack.
@@ -26,7 +31,7 @@ function pop()
 end
 
 
--- generate functions for binary operators +-*/%
+
 BIN_OPS          = "+-*/%"
 function genBinOp(op)
 	meta[op] = loadstring("local t = pop() local n = pop() push(n ".. op .. " t)")
@@ -49,7 +54,43 @@ function createVar(word,ws)
 	wordParser = interpreter                -- restore default word parser
 end
 
+--- print top of stack
+meta["."]  = function() print(pop())                         end
+--- store to variable
+meta["!"]  = function() local a = pop() meta[a] = pop()      end
+--- fetch variable from index on stack
+meta["@"]  = function() push(meta[pop()])                    end
+--- start high level definition
+meta[":"]  = function() wordParser = createHll               end
+--- open file on file system
+meta.open  = function()  -- open file ( "filename" "mode" -- )
+	local m   = pop()
+	local n   = pop()
+	meta.file = io.open(n,m)
+	end
+--- write data to file
+meta.write  = function() meta.file:write(pop())              end -- write string ( s -- )
+--- close file
+meta.close  = function() meta.file:close() meta.file = nil   end -- close file
+--- write a byte to file
+meta.bwrite = function() meta.file:write(string.char(pop())) end -- write binary byte
+--- move command as immediate
+macro.immediate = function()
+		macro[meta.currentWord] = meta[meta.currentWord]
+		meta[meta.currentWord]  = nil
+		meta.currentWord        = nil
+	end
+macro["if"] = function()
+		meta[meta.currentWord] = meta[meta.currentWord] .. " meta.bool() if pop() then "
+	end
 
+function define_constant(word, ws)
+	local v = pop()
+	meta[word] = function() push(v) end
+	wordParser = interpret
+end
+
+function macro.constant() wordParser = define_constant end
 
 --- assemble lua definition
 function parseLua(word,ws)
@@ -59,15 +100,13 @@ function parseLua(word,ws)
 			print("Error ",err)
 		end
 		luaFunc()
-		wordParser = interpreter
+		wordParser = interpret
 	else
-		luaWord    = luaWord .. word .. ws
+		luaWord    = luaWord .. word .. ( ws or "" )
 	end
 end
 
-
---- interpreter
-function interpreter(word,ws)
+function interpret(word,ws)
 	if macro[word] then
 		macro[word]()
 	elseif(meta[word]) then
@@ -81,7 +120,7 @@ function interpreter(word,ws)
 end
 
 -- create new HLL definition word
-function compCreateToken(word,ws)
+function createHll(word,ws)
 	meta.currentWord = word
 	meta[word]=" "
 	wordParser = compCompileWords
@@ -89,7 +128,7 @@ end
 
 -- end high level definition colon 
 macro[";"] = function()
-	wordParser = interpreter
+	wordParser = interpret
 	local cw   = meta.currentWord
 	meta[cw]   = meta[cw] .. " "
 	local cf,e = loadstring(meta[cw])
@@ -123,22 +162,22 @@ macro['"'] = function()
 end
 
 -- skip comment line
-function skipLine(word, ws)
+function skipCommentLine(word, ws)
 	if ws == "\n" then
 		wordParser = skipLineOrgParser
 	end
 end
 
 -- skip block comment
-function skipComment(word,ws)
-	print(" comment skip ")
+function skipCommentBlock(word,ws)
+	-- print(" comment skip ")
 	if word == ")" then
 		wordParser = skipCommentOrgParser
 	end
 end
 
-macro["\\"] = function() skipLineOrgParser = wordParser wordParser = skipLine end
-macro["("]  = function() skipCommentOrgParser = wordParser wordParser = skipComment end
+macro["\\"] = function() skipLineOrgParser    = wordParser wordParser = skipCommentLine  end
+macro["("]  = function() skipCommentOrgParser = wordParser wordParser = skipCommentBlock end
 
 --- high level compiler.
 -- a word parser class function
@@ -172,7 +211,6 @@ function meta.bool()
 	end
 end
 
-
 --- Redirection to invoke current word parser.
 -- @param w the current word string
 -- @param ws the white spaces following the current word
@@ -203,8 +241,7 @@ function parseSource(source)
 end
 
 --- Variable / state initialization
-
-wordParser = interpreter --- reference to current word parser
+wordParser = interpret --- reference to current word parser
 lineNumber = 0         --- counter for source line numbers
 lineParser = parseLine --- reference to current line parser
 
@@ -213,7 +250,7 @@ source = [[
 :L meta["."] = function() print(pop()) end L;
 :L meta["!"] = function() local a = pop() meta[a] = pop() end L;
 :L meta["@"] = function() push(meta[pop()]) end L;
-:L meta[":"] = function() wordParser = compCreateToken end L;
+:L meta[":"] = function() wordParser = createHll end L;
 :L macro.immediate = function()
 		macro[meta.currentWord] = meta[meta.currentWord]
 		meta[meta.currentWord]  = nil
@@ -248,10 +285,11 @@ c @ .
 \ ( klkj sdlk lfd slkj gfsd )
 \ das ist ein comment
 100 .
-( klj alkdk lkj )
+( klj üüü öööö  alkdk lkj )
 " Hallo Leute" 2 !
 2 @ .
 ]]
+
 parseSource(source)
 for k,v in pairs(meta) do print(k,v) end
 

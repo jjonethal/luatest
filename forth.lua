@@ -67,10 +67,10 @@ meta[":"]  = function() wordParser = createHll               end
 meta.open  = function()  -- open file ( "filename" "mode" -- )
 	local m   = pop()
 	local n   = pop()
-	meta.file = io.open(n,m)
+	push(io.open(n,m))
 	end
 --- write data to file
-meta.write  = function() meta.file:write(pop())              end -- write string ( s -- )
+meta.write  = function() local f = pop() f:write(pop())      end -- write string ( s -- )
 --- close file
 meta.close  = function() meta.file:close() meta.file = nil   end -- close file
 --- write a byte to file
@@ -85,12 +85,14 @@ macro["if"] = function()
 		meta[meta.currentWord] = meta[meta.currentWord] .. " meta.bool() if pop() then "
 	end
 
+--- create constant initialize with value from stack
 function create_constant(word, ws)
 	local v = pop()
 	meta[word] = function() push(v) end
 	wordParser = interpret
 end
 
+--- constant definition
 function macro.constant() wordParser = create_constant end
 
 --- assemble lua definition

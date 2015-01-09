@@ -25,10 +25,11 @@ end
 
 --- get item from parameter stack
 function pop()
-	assert(stack.sp > 0,"stack underflow")
-	local n         = stack[stack.sp]
-	stack[stack.sp] = nil
-	stack.sp        = stack.sp - 1
+	local sp  = stack.sp
+	assert(sp > 0,"stack underflow")
+	local n   = stack[sp]
+	stack[sp] = nil
+	stack.sp  = sp - 1
 	return n
 end
 
@@ -109,10 +110,12 @@ function parseLua(word,ws)
 	end
 end
 
+--- check if word is a lua word and put reference or value
+--  @param word to be 
 function lua_word(word)
 	-- A.B.C	
 	local f,err = loadstring(" return " .. word)
-	if f~= nil then
+	if f ~= nil then
 		push(f())
 		return true
 	else
@@ -168,6 +171,63 @@ function stringBuilder(word,ws)
 		-- print("string compiled:",currentString)
 		push(currentString)
 		wordParser = stringBuilderOrgParser
+	end
+end
+
+function invoke_2(f)
+	return function()
+		local sp = stack.sp
+		local r  = {f(stack[sp],stack[sp-1])}
+	end
+end
+
+function putstack(...)
+	local sp = stack.sp
+	local n = select("#",...)
+	for i=n,1,-1 do
+		stack[sp + i]=select(i,...)
+	end
+	stack.sp = sp + n
+	push(n)
+end
+
+--- wrapper generator for lua function
+--  returns the wrapper function for fetching the
+--  given numbers of parameters from stack and
+--  hand them over as function parameters.
+--  the top of stack ist the last function parameter
+--  @param numPar number of function parameters
+function generate_wrapper(numPar)
+	local sf =[[return function(f)
+		local s   = stack
+		local sp  = s.sp - numPar
+		local stack.sp = sp
+		putstack(f(]]
+	for i=1,numPar do
+		sf = sf .. "s[sp + "..i.."],"
+		sf = sf ..")) end"
+	end
+	local f,err = loadstring(sf)
+	if f ~= nil then
+		return f()
+	else
+		debug("generate_wrapper:",err)
+		assert(false,err)
+	end
+end
+function lua_invoke()
+	if(type(f)=="function") then
+		local numRet = pop()
+		local numPar = pop()
+		local f      = pop()
+		local par = {}
+		for i = 1,cnt do 
+			par[i] = pop()
+		end
+		local ret = {f(unpack(par))}
+		for i=1,numRet do
+			push(ret[i])
+		end
 	end
 end
 

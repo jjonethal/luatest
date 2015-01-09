@@ -109,6 +109,18 @@ function parseLua(word,ws)
 	end
 end
 
+function lua_word(word)
+	-- A.B.C	
+	local f,err = loadstring(" return " .. word)
+	if f~= nil then
+		push(f())
+		return true
+	else
+		assert(false,err)
+		return false
+	end
+end
+
 function interpret(word,ws)
 	if macro[word] then
 		macro[word]()
@@ -116,6 +128,8 @@ function interpret(word,ws)
 		meta[word]()
 	elseif tonumber(word) ~= nil then
 		push(tonumber(word))
+	elseif lua_word(word) then
+		print("lua word on stack")
 	else
 		print("\nword unknown", word)
 		assert(false,word)
@@ -196,6 +210,8 @@ function compCompileWords(word,ws)
 		meta[meta.currentWord] = meta[meta.currentWord] .. " meta['" .. word.."']() "
 	elseif tonumber(word) ~= nil then
 		meta[meta.currentWord] = meta[meta.currentWord] .. " push(tonumber(" .. word ..")) "
+	elseif lua_word(word) then
+		meta[meta.currentWord] = meta[meta.currentWord] .. " push( .. word .. ) "
 	else
 		print("\nword unknown", word)
 		assert(false,word)

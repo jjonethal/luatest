@@ -13,6 +13,8 @@ META>
 : variable ;
 : + ;                                  
 : - ;
+: * ;
+: / ;
 : @ ;
 : ! ;
 : key ;
@@ -22,7 +24,8 @@ META>
 : then ;
 : =0 ;
 : <>0 ;
-: ; ;
+: ; ;                   \ end current definition
+: , ;                   \ write a word to current codepointer location
 
 : HOST>                 \ compile to host directory
 : META>                 \ compile to meta compiler
@@ -66,8 +69,8 @@ META>
                   TOS        ISP  LPRD ;
 META>
 VARIABLE CP         \ code pointer point to next adress in dictionary space
-: org  CP ! ;
-: here CP @ ;
+: org  CP ! ;       \ set code pointer to new location
+: here CP @ ;       \ get location of code pointer
 : ALLOT here + CP ! ;
 : cold ( -- )       \ reserve space for the FORTH entry jump
                     \ relocate dictionary to next adress

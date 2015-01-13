@@ -60,8 +60,17 @@ end
 meta["."]  = function() print(pop())                         end
 --- store to variable
 meta["!"]  = function() local a = pop() meta[a] = pop()      end
+--- store to table index
+meta["t!"] = function()
+	local t = pop() idx = pop() t[idx] = pop()
+	end
 --- fetch variable from index on stack
 meta["@"]  = function() push(meta[pop()])                    end
+--- fetch variable from table on stack
+meta["t@"]  = function()
+	local t = pop()
+	push(t[pop()])
+	end
 --- start high level definition
 meta[":"]  = function() wordParser = createHll               end
 --- open file on file system
@@ -344,7 +353,7 @@ source = [[
 :L macro["then"] = function()
 	meta[meta.currentWord] = meta[meta.currentWord] .. " end "
 	end L;
-
+:L meta["{}"] = function() push({}) end L;
 	
 \ this is a line comment
 ( this is a block comment )
